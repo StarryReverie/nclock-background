@@ -42,12 +42,14 @@ fn render_clock(
     config: RenderConfig,
 ) {
     let clock_center = (width / 2.0, heigth / 2.0);
+    let min_lane_length = config.lane_width * 2.0;
 
     let angles = state.angles();
     let labels = state.labels();
 
     for (lane_num, (&angle, label)) in angles.angles.iter().zip(labels.labels.iter()).enumerate() {
         let radius = calc_lane_radius(&config, lane_num as u8);
+        let angle = angle.max(min_lane_length / radius);
 
         let mut path = Path::new();
         path.arc(
