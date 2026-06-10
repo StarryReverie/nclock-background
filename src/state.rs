@@ -2,6 +2,10 @@ use std::time::Instant;
 
 use time::{Month, PrimitiveDateTime, UtcOffset};
 
+pub const POINTER_RESET_ANIMATION_DURATION: f64 = 0.75;
+pub const INTRO_ANIMATION_WAIT_DURATION: f64 = 1.5;
+pub const INTRO_ANIMATION_EXPANSION_DURATION: f64 = 0.75;
+
 #[derive(Debug, Clone)]
 pub struct AppState {
     clock: ClockAnimation,
@@ -20,6 +24,10 @@ impl AppState {
             current_instant: initial_instant,
             utc_offset,
         }
+    }
+
+    pub fn initial_instant(&self) -> Instant {
+        self.clock.initial_instant()
     }
 
     pub fn refresh_current_instant(&mut self) {
@@ -77,6 +85,10 @@ impl ClockAnimation {
         }
     }
 
+    pub fn initial_instant(&self) -> Instant {
+        self.initial_instant
+    }
+
     pub fn current_time(&self, current_instant: Instant) -> PrimitiveDateTime {
         let duration = current_instant.duration_since(self.initial_instant);
         self.initial_time + duration
@@ -84,13 +96,14 @@ impl ClockAnimation {
 
     pub fn angles_at(&self, current_instant: Instant) -> ClockAngles {
         let current_time = self.current_time(current_instant);
+        let intro = self.calc_intro_factor(current_instant);
         ClockAngles {
             angles: [
-                Self::months_angle_at(&current_time),
-                Self::days_angle_at(&current_time),
-                Self::hour_angle_at(&current_time),
-                Self::minute_angle_at(&current_time),
-                Self::second_angle_at(&current_time),
+                Self::months_angle_at(&current_time) * intro,
+                Self::days_angle_at(&current_time) * intro,
+                Self::hour_angle_at(&current_time) * intro,
+                Self::minute_angle_at(&current_time) * intro,
+                Self::second_angle_at(&current_time) * intro,
             ],
         }
     }
@@ -155,8 +168,6 @@ impl ClockAnimation {
         end: &PrimitiveDateTime,
         length: u64,
     ) -> f64 {
-        const POINTER_RESET_ANIMATION_DURATION: f64 = 0.75;
-
         let seconds = (*end - *start).as_seconds_f64();
 
         let fraction = if seconds < POINTER_RESET_ANIMATION_DURATION {
@@ -166,6 +177,20 @@ impl ClockAnimation {
         };
 
         fraction * 2.0 * std::f64::consts::PI
+    }
+
+    fn calc_intro_factor(&self, current_instant: Instant) -> f64 {
+        let elapsed = current_instant
+            .duration_since(self.initial_instant)
+            .as_secs_f64();
+        if elapsed >= INTRO_ANIMATION_WAIT_DURATION + INTRO_ANIMATION_EXPANSION_DURATION {
+            1.0
+        } else if elapsed >= INTRO_ANIMATION_WAIT_DURATION {
+            let elapsed = elapsed - INTRO_ANIMATION_WAIT_DURATION;
+            1.0 - (-10.0 * elapsed / INTRO_ANIMATION_EXPANSION_DURATION).exp2()
+        } else {
+            0.0
+        }
     }
 }
 

@@ -1,9 +1,10 @@
 use std::f64::consts::{FRAC_1_PI, FRAC_PI_2, PI};
+use std::time::Duration;
 
 use femtovg::{Align, Baseline, Canvas, Color, FontId, LineCap, Paint, Path, Renderer, Solidity};
 
 use crate::app::AppConfig;
-use crate::state::AppState;
+use crate::state::{AppState, INTRO_ANIMATION_WAIT_DURATION};
 
 struct RenderConfig {
     inner_radius: f64,
@@ -41,6 +42,10 @@ fn render_clock(
     font_id: FontId,
     config: RenderConfig,
 ) {
+    if state.initial_instant().elapsed() < Duration::from_secs_f64(INTRO_ANIMATION_WAIT_DURATION) {
+        return;
+    }
+
     let clock_center = (width / 2.0, heigth / 2.0);
     let min_lane_length = config.lane_width * 2.0;
 
