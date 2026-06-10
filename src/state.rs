@@ -100,7 +100,16 @@ impl ClockAnimation {
         end: &PrimitiveDateTime,
         length: u64,
     ) -> f64 {
-        let fraction = (*end - *start).as_seconds_f64() / (length as f64);
+        const POINTER_RESET_ANIMATION_DURATION: f64 = 0.75;
+
+        let seconds = (*end - *start).as_seconds_f64();
+
+        let fraction = if seconds < POINTER_RESET_ANIMATION_DURATION {
+            (1.0 - seconds / POINTER_RESET_ANIMATION_DURATION).powi(2)
+        } else {
+            seconds / (length as f64)
+        };
+
         fraction * 2.0 * std::f64::consts::PI
     }
 }
