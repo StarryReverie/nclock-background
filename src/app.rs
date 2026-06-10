@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 use std::time::Instant;
 
 use femtovg::renderer::OpenGl;
-use femtovg::{Canvas, Color};
+use femtovg::{Canvas, Color, FontId};
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
 use glutin::display::{Display, GetGlDisplay};
@@ -30,6 +30,7 @@ pub struct AppContext {
     context: PossiblyCurrentContext,
     surface: Surface<WindowSurface>,
     canvas: Canvas<OpenGl>,
+    font_id: FontId,
 }
 
 pub struct App {
@@ -59,6 +60,7 @@ impl App {
         };
 
         let canvas = &mut context.canvas;
+        let font_id = context.font_id;
 
         let size = context.window.inner_size();
         let scale_factor = context.window.scale_factor() as f32;
@@ -70,6 +72,7 @@ impl App {
             (size.width as f32, size.height as f32),
             &self.config,
             &self.state,
+            font_id,
         );
 
         canvas.flush();
@@ -92,13 +95,19 @@ impl ApplicationHandler for App {
             OpenGl::new_from_function_cstr(|s| display.get_proc_address(s).cast())
                 .expect("could not create renderer")
         };
-        let canvas = Canvas::new(renderer).expect("could not create canvas");
+        let mut canvas = Canvas::new(renderer).expect("could not create canvas");
+
+        let font_data = include_bytes!("../assets/Lato-Regular.ttf");
+        let font_id = canvas
+            .add_font_mem(font_data)
+            .expect("could not load embedded font");
 
         self.context = Some(AppContext {
             window,
             context,
             surface,
             canvas,
+            font_id,
         })
     }
 

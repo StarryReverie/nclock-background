@@ -23,6 +23,10 @@ impl AppState {
     pub fn angles(&self) -> ClockAngles {
         self.clock.angles_at(self.current_instant)
     }
+
+    pub fn labels(&self) -> ClockLabels {
+        self.clock.labels_at(self.current_instant)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +57,19 @@ impl ClockAnimation {
                 Self::hour_angle_at(&current_time),
                 Self::minute_angle_at(&current_time),
                 Self::second_angle_at(&current_time),
+            ],
+        }
+    }
+
+    pub fn labels_at(&self, current_instant: Instant) -> ClockLabels {
+        let current_time = self.current_time(current_instant);
+        ClockLabels {
+            labels: [
+                current_time.month().to_string(),
+                format_day_ordinal(current_time.day()),
+                format!("{} hours", current_time.hour()),
+                format!("{} minutes", current_time.minute()),
+                format!("{} seconds", current_time.second()),
             ],
         }
     }
@@ -117,4 +134,19 @@ impl ClockAnimation {
 #[derive(Debug, Clone)]
 pub struct ClockAngles {
     pub angles: [f64; 5],
+}
+
+#[derive(Debug, Clone)]
+pub struct ClockLabels {
+    pub labels: [String; 5],
+}
+
+fn format_day_ordinal(day: u8) -> String {
+    let suffix = match day % 10 {
+        1 if day % 100 != 11 => "st",
+        2 if day % 100 != 12 => "nd",
+        3 if day % 100 != 13 => "rd",
+        _ => "th",
+    };
+    format!("{}{}", day, suffix)
 }
