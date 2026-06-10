@@ -1,4 +1,5 @@
 use std::num::NonZeroU32;
+use std::time::Instant;
 
 use femtovg::renderer::OpenGl;
 use femtovg::{Canvas, Color};
@@ -8,20 +9,20 @@ use glutin::display::{Display, GetGlDisplay};
 use glutin::prelude::{GlDisplay, NotCurrentGlContext};
 use glutin::surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
+use time::{OffsetDateTime, PrimitiveDateTime};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::raw_window_handle::HasWindowHandle;
 use winit::window::{Fullscreen, Window, WindowId};
 
-pub struct App {
-    context: Option<AppContext>,
-}
+use crate::state::AppState;
 
-impl App {
-    pub fn new() -> Self {
-        Self { context: None }
-    }
+#[derive(Debug, Clone)]
+pub struct AppConfig {
+    pub inner_radius_frac: f64,
+    pub lane_width_frac: f64,
+    pub lane_margin_frac: f64,
 }
 
 pub struct AppContext {
@@ -29,6 +30,54 @@ pub struct AppContext {
     context: PossiblyCurrentContext,
     surface: Surface<WindowSurface>,
     canvas: Canvas<OpenGl>,
+}
+
+pub struct App {
+    context: Option<AppContext>,
+    config: AppConfig,
+    state: AppState,
+}
+
+impl App {
+    pub fn new(config: AppConfig) -> Self {
+        let initial_instant = Instant::now();
+        let initial_time = {
+            let time = OffsetDateTime::now_local().unwrap();
+            PrimitiveDateTime::new(time.date(), time.time())
+        };
+
+        Self {
+            context: None,
+            config,
+            state: AppState::new(initial_time, initial_instant),
+        }
+    }
+
+    fn render(&mut self) {
+        let Some(context) = &mut self.context else {
+            return;
+        };
+
+        let canvas = &mut context.canvas;
+
+        let size = context.window.inner_size();
+        let scale_factor = context.window.scale_factor() as f32;
+        canvas.set_size(size.width, size.height, scale_factor);
+        canvas.clear_rect(0, 0, size.width, size.height, Color::black());
+
+        crate::renderer::render(
+            canvas,
+            (size.width as f32, size.height as f32),
+            &self.config,
+            &self.state,
+        );
+
+        canvas.flush();
+        context
+            .surface
+            .swap_buffers(&context.context)
+            .expect("could not swap buffers");
+    }
 }
 
 impl ApplicationHandler for App {
@@ -59,16 +108,19 @@ impl ApplicationHandler for App {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        let Some(context) = self.context.as_mut() else {
-            return;
-        };
-
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => {
-                render(context);
+                self.state.refresh_current_instant();
+                self.render();
             }
             _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        if let Some(context) = &self.context {
+            context.window.request_redraw();
         }
     }
 }
@@ -125,22 +177,4 @@ fn create_window(
         .expect("could not set current OpenGL context");
 
     (window, context, display, surface)
-}
-
-fn render(context: &mut AppContext) {
-    let size = context.window.inner_size();
-    context.canvas.set_size(
-        size.width,
-        size.height,
-        context.window.scale_factor() as f32,
-    );
-    context
-        .canvas
-        .clear_rect(0, 0, size.width, size.height, Color::black());
-
-    context.canvas.flush();
-    context
-        .surface
-        .swap_buffers(&context.context)
-        .expect("could not swap buffers");
 }

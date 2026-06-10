@@ -1,4 +1,5 @@
 mod app;
+mod renderer;
 mod state;
 
-pub use app::App;
+pub use app::{App, AppConfig};
