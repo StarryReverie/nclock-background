@@ -28,7 +28,7 @@ pub fn render(
     state: &AppState,
     font_id: FontId,
 ) {
-    let config = RenderConfig::convert(&config, heigth as f64);
+    let config = RenderConfig::convert(config, heigth as f64);
     render_clock(canvas, width, heigth, state, font_id, config);
     render_footer(canvas, width, heigth, state, font_id);
 }
@@ -70,8 +70,7 @@ fn render_clock(
         let pointer_angle = FRAC_PI_2 * 3.0 + angle;
         render_text_on_lane(
             canvas,
-            clock_center.0,
-            clock_center.1,
+            clock_center,
             radius,
             pointer_angle,
             label,
@@ -92,8 +91,7 @@ fn calc_rgb_from_angle(angle: f64) -> Color {
 
 fn render_text_on_lane(
     canvas: &mut Canvas<impl Renderer>,
-    cx: f32,
-    cy: f32,
+    clock_center: (f32, f32),
     radius: f64,
     pointer_angle: f64,
     text: &str,
@@ -117,15 +115,15 @@ fn render_text_on_lane(
 
     for ch in iter {
         let metrics = canvas
-            .measure_text(0.0, 0.0, &ch.to_string(), &paint)
+            .measure_text(0.0, 0.0, ch.to_string(), &paint)
             .unwrap();
         let char_width = metrics.width() as f64;
         let delta = char_width / radius;
         offset += delta;
         let theta = pointer_angle - offset + delta / 2.0;
 
-        let x = cx + (radius * theta.cos()) as f32;
-        let y = cy + (radius * theta.sin()) as f32;
+        let x = clock_center.0 + (radius * theta.cos()) as f32;
+        let y = clock_center.1 + (radius * theta.sin()) as f32;
 
         let rotation = if pointer_angle.sin() > 0.0 {
             theta + PI * 1.5
@@ -136,7 +134,7 @@ fn render_text_on_lane(
         canvas.save_with(|canvas| {
             canvas.translate(x, y);
             canvas.rotate(rotation as f32);
-            canvas.fill_text(0.0, 0.0, &ch.to_string(), &paint).ok();
+            canvas.fill_text(0.0, 0.0, ch.to_string(), &paint).ok();
         });
     }
 }
