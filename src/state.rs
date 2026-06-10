@@ -101,7 +101,7 @@ impl ClockAnimation {
             labels: [
                 current_time.month().to_string(),
                 format_day_ordinal(current_time.day()),
-                format!("{} hours", current_time.hour()),
+                format_hours_12(current_time.hour()),
                 format!("{} minutes", current_time.minute()),
                 format!("{} seconds", current_time.second()),
             ],
@@ -132,8 +132,12 @@ impl ClockAnimation {
     }
 
     fn hour_angle_at(current_time: &PrimitiveDateTime) -> f64 {
-        let truncated = current_time.truncate_to_day();
-        Self::calc_animation_angle(&truncated, current_time, 24 * 60 * 60)
+        let block_start = if current_time.hour() < 12 {
+            current_time.truncate_to_day()
+        } else {
+            current_time.truncate_to_day().replace_hour(12).unwrap()
+        };
+        Self::calc_animation_angle(&block_start, current_time, 12 * 60 * 60)
     }
 
     fn minute_angle_at(current_time: &PrimitiveDateTime) -> f64 {
@@ -183,4 +187,11 @@ fn format_day_ordinal(day: u8) -> String {
         _ => "th",
     };
     format!("{}{}", day, suffix)
+}
+
+fn format_hours_12(hour: u8) -> String {
+    let h12 = hour % 12;
+    let h12 = if h12 == 0 { 12 } else { h12 };
+    let period = if hour < 12 { "AM" } else { "PM" };
+    format!("{} hours {}", h12, period)
 }
