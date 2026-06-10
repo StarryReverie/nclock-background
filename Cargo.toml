@@ -7,4 +7,5 @@ edition = "2024"
 femtovg = { version = "0.25.1", default-features = false, features = ["textlayout"] }
 glutin = { version = "0.32.3", default-features = false, features = ["egl", "wayland"] }
 glutin-winit = { version = "0.5.0", default-features = false, features = ["egl", "wayland"] }
+time = "0.3.47"
 winit = { version = "0.30.13", default-features = false, features = ["wayland"] }
