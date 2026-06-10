@@ -29,6 +29,18 @@ pub fn render(
     font_id: FontId,
 ) {
     let config = RenderConfig::convert(&config, heigth as f64);
+    render_clock(canvas, width, heigth, state, font_id, config);
+    render_footer(canvas, width, heigth, state, font_id);
+}
+
+fn render_clock(
+    canvas: &mut Canvas<impl Renderer>,
+    width: f32,
+    heigth: f32,
+    state: &AppState,
+    font_id: FontId,
+    config: RenderConfig,
+) {
     let clock_center = (width / 2.0, heigth / 2.0);
 
     let angles = state.angles();
@@ -125,4 +137,23 @@ fn render_text_on_lane(
             canvas.fill_text(0.0, 0.0, &ch.to_string(), &paint).ok();
         });
     }
+}
+
+fn render_footer(
+    canvas: &mut Canvas<impl Renderer>,
+    width: f32,
+    height: f32,
+    state: &AppState,
+    font_id: FontId,
+) {
+    let font_size = height * 0.015;
+    let paint = Paint::color(Color::rgb(160, 160, 160))
+        .with_font(&[font_id])
+        .with_font_size(font_size)
+        .with_text_align(Align::Center)
+        .with_text_baseline(Baseline::Bottom);
+
+    let text = state.footer_text();
+    let y = height - height * 0.02;
+    canvas.fill_text(width / 2.0, y, &text, &paint).ok();
 }

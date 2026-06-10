@@ -42,15 +42,15 @@ pub struct App {
 impl App {
     pub fn new(config: AppConfig) -> Self {
         let initial_instant = Instant::now();
-        let initial_time = {
-            let time = OffsetDateTime::now_local().unwrap();
-            PrimitiveDateTime::new(time.date(), time.time())
-        };
+
+        let time = OffsetDateTime::now_local().unwrap();
+        let initial_time = PrimitiveDateTime::new(time.date(), time.time());
+        let utc_offset = time.offset();
 
         Self {
             context: None,
             config,
-            state: AppState::new(initial_time, initial_instant),
+            state: AppState::new(initial_time, initial_instant, utc_offset),
         }
     }
 

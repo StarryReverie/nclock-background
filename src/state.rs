@@ -1,18 +1,24 @@
 use std::time::Instant;
 
-use time::{Month, PrimitiveDateTime};
+use time::{Month, PrimitiveDateTime, UtcOffset};
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     clock: ClockAnimation,
     current_instant: Instant,
+    utc_offset: UtcOffset,
 }
 
 impl AppState {
-    pub fn new(initial_time: PrimitiveDateTime, initial_instant: Instant) -> Self {
+    pub fn new(
+        initial_time: PrimitiveDateTime,
+        initial_instant: Instant,
+        utc_offset: UtcOffset,
+    ) -> Self {
         Self {
             clock: ClockAnimation::new(initial_time, initial_instant),
             current_instant: initial_instant,
+            utc_offset,
         }
     }
 
@@ -26,6 +32,34 @@ impl AppState {
 
     pub fn labels(&self) -> ClockLabels {
         self.clock.labels_at(self.current_instant)
+    }
+
+    pub fn footer_text(&self) -> String {
+        let current_time = self.clock.current_time(self.current_instant);
+
+        let tz_name = iana_time_zone::get_timezone().unwrap_or_else(|_| "Unknown".to_string());
+
+        let offset_hours = self.utc_offset.whole_hours();
+        let offset_sign = if offset_hours >= 0 { "+" } else { "-" };
+        let offset_str = format!("{} (UTC{}{})", tz_name, offset_sign, offset_hours.abs());
+
+        let date_str = current_time
+            .format(
+                &time::format_description::parse("[year]-[month repr:numerical]-[day]").unwrap(),
+            )
+            .unwrap();
+        let weekday = current_time.weekday().to_string();
+        let time_str = current_time
+            .format(
+                &time::format_description::parse("[hour repr:12]:[minute]:[second] [period]")
+                    .unwrap(),
+            )
+            .unwrap();
+
+        format!(
+            "Night Clock Screensaver - {} - {} {} {}",
+            offset_str, date_str, weekday, time_str
+        )
     }
 }
 
