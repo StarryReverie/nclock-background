@@ -1,5 +1,5 @@
 {
-  description = "Nix Flake of nclock-screensaver (Development)";
+  description = "Nix Flake of nclock-background (Development)";
 
   inputs = {
     flake-parts = {

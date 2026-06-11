@@ -6,7 +6,7 @@
 }:
 {
   flake.overlays = {
-    default = self.overlays.nclock-screensaver;
-    nclock-screensaver = import ../overlay.nix;
+    default = self.overlays.nclock-background;
+    nclock-background = import ../overlay.nix;
   };
 }

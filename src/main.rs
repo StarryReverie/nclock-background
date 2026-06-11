@@ -1,4 +1,4 @@
-use nclock_screensaver::{App, AppConfig};
+use nclock_background::{App, AppConfig};
 use winit::event_loop::EventLoop;
 
 fn main() {

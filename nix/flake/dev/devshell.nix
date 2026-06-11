@@ -36,7 +36,7 @@
               pkgsDev.wayland
             ]
           }"
-          export __EGL_VENDOR_LIBRARY_DIRS="${pkgsDev.mesa}/share/glvnd/egl_vendor.d"
+          # export __EGL_VENDOR_LIBRARY_DIRS="${pkgsDev.mesa}/share/glvnd/egl_vendor.d"
         '';
       };
     };

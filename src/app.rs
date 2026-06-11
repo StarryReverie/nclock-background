@@ -155,7 +155,7 @@ fn create_window(
 ) {
     let window_attrs = Window::default_attributes()
         .with_fullscreen(Some(Fullscreen::Borderless(None)))
-        .with_title("Night Clock Screensaver");
+        .with_title("Night Clock");
 
     let (window, config) = DisplayBuilder::new()
         .with_window_attributes(Some(window_attrs))

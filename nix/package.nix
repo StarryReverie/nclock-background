@@ -4,7 +4,7 @@
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
-  pname = "nclock-screensaver";
+  pname = "nclock-background";
   version = "0.1.0";
 
   src = import ./source.nix { inherit lib; };
@@ -14,9 +14,9 @@ rustPlatform.buildRustPackage (finalAttrs: {
   };
 
   meta = {
-    description = "Night clock screensaver";
-    homepage = "https://github.com/starryreverie/nclock-screensaver";
-    mainProgram = "nclock-screensaver";
+    description = "Night clock background";
+    homepage = "https://github.com/starryreverie/nclock-background";
+    mainProgram = "nclock-background";
     license = lib.licenses.gpl3Plus;
     maintainers = with lib.maintainers; [ starryreverie ];
     platforms = lib.platforms.linux;

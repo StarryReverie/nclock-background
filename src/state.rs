@@ -65,7 +65,7 @@ impl AppState {
             .unwrap();
 
         format!(
-            "Night Clock Screensaver - {} - {} {} {}",
+            "Night Clock - {} - {} {} {}",
             offset_str, date_str, weekday, time_str
         )
     }

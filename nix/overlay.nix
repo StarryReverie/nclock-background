@@ -1,3 +1,3 @@
 final: prev: {
-  nclock-screensaver = prev.callPackage ./package.nix { };
+  nclock-background = prev.callPackage ./package.nix { };
 }
