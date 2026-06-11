@@ -1,194 +1,179 @@
-use std::num::NonZeroU32;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-use femtovg::renderer::OpenGl;
-use femtovg::{Canvas, Color, FontId};
-use glutin::config::ConfigTemplateBuilder;
-use glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
-use glutin::display::{Display, GetGlDisplay};
-use glutin::prelude::{GlDisplay, NotCurrentGlContext};
-use glutin::surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface};
-use glutin_winit::DisplayBuilder;
+use calloop::EventLoop;
+use calloop::timer::{TimeoutAction, Timer};
 use time::{OffsetDateTime, PrimitiveDateTime};
-use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
-use winit::raw_window_handle::HasWindowHandle;
-use winit::window::{Fullscreen, Window, WindowId};
+use wayland_client::globals::GlobalListContents;
+use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_output::{Event as WlOutputEvent, WlOutput};
+use wayland_client::protocol::wl_registry::{Event as WlRegistryEvent, WlRegistry};
+use wayland_client::protocol::wl_surface::{Event as WlSurfaceEvent, WlSurface};
+use wayland_client::{Connection, Dispatch, QueueHandle, delegate_noop};
+use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_shell_v1::ZwlrLayerShellV1;
+use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1::{
+    Event as ZwlrLayerSurfaceV1Event, ZwlrLayerSurfaceV1,
+};
 
 use nclock_config::AppConfig;
 use nclock_core::AppState;
 
-pub struct AppContext {
-    window: Window,
-    context: PossiblyCurrentContext,
-    surface: Surface<WindowSurface>,
-    canvas: Canvas<OpenGl>,
-    font_id: FontId,
-}
+use crate::opengl::OpenGlContext;
+use crate::wayland::WaylandContext;
+
+const RENDER_INTERVAL: Duration = Duration::from_millis(16);
 
 pub struct App {
-    context: Option<AppContext>,
     config: AppConfig,
     state: AppState,
-}
 
-impl Drop for App {
-    fn drop(&mut self) {
-        if let Some(context) = self.context.take() {
-            drop(context.canvas);
-            drop(context.surface);
-            drop(context.context);
-            drop(context.window);
-        }
-    }
+    wayland: WaylandContext<Self>,
+    opengl: OpenGlContext,
 }
 
 impl App {
-    pub fn new(config: AppConfig) -> Self {
+    pub fn run(config: AppConfig) {
+        let mut event_loop = EventLoop::try_new().expect("could not create event loop");
+        event_loop
+            .handle()
+            .insert_source(
+                Timer::from_duration(RENDER_INTERVAL),
+                |_, _, app: &mut App| {
+                    app.state.refresh_current_instant();
+                    app.render_all();
+                    TimeoutAction::ToDuration(RENDER_INTERVAL)
+                },
+            )
+            .expect("could not insert timer");
+
+        let wayland = WaylandContext::create(&event_loop, &config.layer);
+        let opengl = OpenGlContext::create(&wayland.connection());
+
         let initial_instant = Instant::now();
+        let initial_time = OffsetDateTime::now_local().unwrap();
+        let utc_offset = initial_time.offset();
+        let initial_time = PrimitiveDateTime::new(initial_time.date(), initial_time.time());
 
-        let time = OffsetDateTime::now_local().unwrap();
-        let initial_time = PrimitiveDateTime::new(time.date(), time.time());
-        let utc_offset = time.offset();
-
-        Self {
-            context: None,
+        let mut app = Self {
             config,
             state: AppState::new(initial_time, initial_instant, utc_offset),
+            wayland,
+            opengl,
+        };
+
+        event_loop
+            .run(None, &mut app, |_| {})
+            .expect("event loop error");
+    }
+
+    fn bind_output(&mut self, global_name: u32, version: u32) {
+        self.wayland
+            .bind_output(global_name, version, &self.config.layer);
+    }
+
+    fn handle_configure(&mut self, output_name: u32, width: u32, height: u32) {
+        let first_configure = self.wayland.handle_configure(output_name, width, height);
+        if first_configure {
+            let output = self.wayland.outputs.get(&output_name).unwrap();
+            let configured = self.opengl.init_for_output(output, width, height);
+            self.wayland
+                .outputs
+                .get_mut(&output_name)
+                .unwrap()
+                .configured = Some(configured);
         }
     }
 
-    fn render(&mut self) {
-        let Some(context) = &mut self.context else {
-            return;
-        };
+    fn handle_closed(&mut self, output_name: u32) {
+        self.wayland.handle_closed(output_name);
+    }
 
-        let canvas = &mut context.canvas;
-        let font_id = context.font_id;
-
-        let size = context.window.inner_size();
-        let scale_factor = context.window.scale_factor() as f32;
-        canvas.set_size(size.width, size.height, scale_factor);
-        canvas.clear_rect(0, 0, size.width, size.height, Color::black());
-
-        nclock_core::render(
-            canvas,
-            (size.width as f32, size.height as f32),
-            &self.config.animation,
-            &self.state,
-            font_id,
-        );
-
-        canvas.flush();
-        context
-            .surface
-            .swap_buffers(&context.context)
-            .expect("could not swap buffers");
+    fn render_all(&mut self) {
+        for output in self.wayland.outputs.values_mut() {
+            self.opengl
+                .render_output(output, &self.config.animation, &self.state);
+        }
     }
 }
 
-impl ApplicationHandler for App {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.context.is_some() {
-            return;
-        }
+delegate_noop!(App: WlCompositor);
+delegate_noop!(App: ZwlrLayerShellV1);
 
-        let (window, context, display, surface) = create_window(event_loop);
-
-        let renderer = unsafe {
-            OpenGl::new_from_function_cstr(|s| display.get_proc_address(s).cast())
-                .expect("could not create renderer")
-        };
-        let mut canvas = Canvas::new(renderer).expect("could not create canvas");
-
-        let font_data = include_bytes!("../assets/Lato-Regular.ttf");
-        let font_id = canvas
-            .add_font_mem(font_data)
-            .expect("could not load embedded font");
-
-        self.context = Some(AppContext {
-            window,
-            context,
-            surface,
-            canvas,
-            font_id,
-        })
+impl Dispatch<WlSurface, ()> for App {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlSurface,
+        _event: WlSurfaceEvent,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
     }
+}
 
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _window_id: WindowId,
-        event: WindowEvent,
+impl Dispatch<WlRegistry, GlobalListContents> for App {
+    fn event(
+        state: &mut Self,
+        _proxy: &WlRegistry,
+        event: WlRegistryEvent,
+        _data: &GlobalListContents,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
     ) {
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::RedrawRequested => {
-                self.state.refresh_current_instant();
-                self.render();
+            WlRegistryEvent::Global {
+                name,
+                interface,
+                version,
+            } if interface == "wl_output" => {
+                state.bind_output(name, version);
+            }
+            WlRegistryEvent::GlobalRemove { name } => {
+                state.handle_closed(name);
             }
             _ => {}
         }
     }
+}
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if let Some(context) = &self.context {
-            context.window.request_redraw();
+impl Dispatch<WlOutput, u32> for App {
+    fn event(
+        state: &mut Self,
+        _proxy: &WlOutput,
+        event: WlOutputEvent,
+        output_name: &u32,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        if let WlOutputEvent::Scale { factor } = event {
+            if let Some(output) = state.wayland.outputs.get_mut(output_name) {
+                output.scale_factor = factor as f32;
+            }
         }
     }
 }
 
-fn create_window(
-    event_loop: &ActiveEventLoop,
-) -> (
-    Window,
-    PossiblyCurrentContext,
-    Display,
-    Surface<WindowSurface>,
-) {
-    let window_attrs = Window::default_attributes()
-        .with_fullscreen(Some(Fullscreen::Borderless(None)))
-        .with_title("Night Clock");
-
-    let (window, config) = DisplayBuilder::new()
-        .with_window_attributes(Some(window_attrs))
-        .build(event_loop, ConfigTemplateBuilder::new(), |mut configs| {
-            configs.next().unwrap()
-        })
-        .expect("could not create display");
-    let window = window.expect("could not create window");
-    let display = config.display();
-
-    let handle = window
-        .window_handle()
-        .expect("could not get raw window handle")
-        .as_raw();
-    let context_attrs = ContextAttributesBuilder::new().build(Some(handle));
-    let context = unsafe {
-        display
-            .create_context(&config, &context_attrs)
-            .expect("could not create OpenGL context")
-    };
-
-    let handle = window
-        .window_handle()
-        .expect("could not get raw window handle")
-        .as_raw();
-    let surface_attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-        handle,
-        NonZeroU32::new(window.inner_size().width).expect("window width should not be 0"),
-        NonZeroU32::new(window.inner_size().height).expect("window height should not be 0"),
-    );
-    let surface = unsafe {
-        display
-            .create_window_surface(&config, &surface_attrs)
-            .expect("could not create rendering surface")
-    };
-
-    let context = context
-        .make_current(&surface)
-        .expect("could not set current OpenGL context");
-
-    (window, context, display, surface)
+impl Dispatch<ZwlrLayerSurfaceV1, u32> for App {
+    fn event(
+        state: &mut Self,
+        proxy: &ZwlrLayerSurfaceV1,
+        event: ZwlrLayerSurfaceV1Event,
+        output_name: &u32,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        match event {
+            ZwlrLayerSurfaceV1Event::Configure {
+                serial,
+                width,
+                height,
+            } => {
+                proxy.ack_configure(serial);
+                state.handle_configure(*output_name, width, height);
+            }
+            ZwlrLayerSurfaceV1Event::Closed => {
+                state.handle_closed(*output_name);
+            }
+            _ => {}
+        }
+    }
 }

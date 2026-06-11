@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub animation: AnimationConfig,
+    pub layer: LayerConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -8,4 +9,18 @@ pub struct AnimationConfig {
     pub relative_inner_radius: f64,
     pub relative_lane_width: f64,
     pub relative_lane_margin: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct LayerConfig {
+    pub layer: Layer,
+    pub namespace: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layer {
+    Background,
+    Bottom,
+    Top,
+    Overlay,
 }

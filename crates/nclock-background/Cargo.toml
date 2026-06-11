@@ -6,9 +6,13 @@ edition.workspace = true
 [dependencies]
 femtovg = { workspace = true }
 glutin = { workspace = true }
-glutin-winit = { workspace = true }
 time = { workspace = true }
-winit = { workspace = true }
+wayland-backend = { workspace = true }
+wayland-client = { workspace = true }
+wayland-protocols-wlr = { workspace = true }
+calloop = { workspace = true }
+calloop-wayland-source = { workspace = true }
+raw-window-handle = { workspace = true }
 
 nclock-config = { path = "../nclock-config" }
 nclock-core = { path = "../nclock-core" }

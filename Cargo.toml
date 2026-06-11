@@ -9,7 +9,11 @@ edition = "2024"
 [workspace.dependencies]
 femtovg = { version = "0.25.1", default-features = false, features = ["textlayout"] }
 glutin = { version = "0.32.3", default-features = false, features = ["egl", "wayland"] }
-glutin-winit = { version = "0.5.0", default-features = false, features = ["egl", "wayland"] }
 time = { version = "0.3.47", features = ["local-offset", "formatting", "macros"] }
 iana-time-zone = "0.1"
-winit = { version = "0.30.13", default-features = false, features = ["wayland"] }
+wayland-backend = { version = "0.3", features = ["client_system"] }
+wayland-client = { version = "0.31", features = ["system"] }
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+calloop = "0.13"
+calloop-wayland-source = "0.3"
+raw-window-handle = "0.6"

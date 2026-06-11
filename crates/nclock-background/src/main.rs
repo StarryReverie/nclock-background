@@ -1,7 +1,5 @@
-use winit::event_loop::EventLoop;
-
 use nclock_background::App;
-use nclock_config::{AnimationConfig, AppConfig};
+use nclock_config::{AnimationConfig, AppConfig, Layer, LayerConfig};
 
 fn main() {
     let config = AppConfig {
@@ -10,9 +8,11 @@ fn main() {
             relative_lane_width: 0.045,
             relative_lane_margin: 0.015,
         },
+        layer: LayerConfig {
+            layer: Layer::Background,
+            namespace: "nclock-background".to_string(),
+        },
     };
 
-    let event_loop = EventLoop::new().expect("could not create event loop");
-    let mut app = App::new(config);
-    event_loop.run_app(&mut app).unwrap();
+    App::run(config);
 }
