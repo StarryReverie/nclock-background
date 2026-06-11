@@ -39,6 +39,17 @@ pub struct App {
     state: AppState,
 }
 
+impl Drop for App {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.take() {
+            drop(context.canvas);
+            drop(context.surface);
+            drop(context.context);
+            drop(context.window);
+        }
+    }
+}
+
 impl App {
     pub fn new(config: AppConfig) -> Self {
         let initial_instant = Instant::now();
