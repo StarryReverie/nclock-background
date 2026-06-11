@@ -3,7 +3,8 @@ use std::time::Duration;
 
 use femtovg::{Align, Baseline, Canvas, Color, FontId, LineCap, Paint, Path, Renderer, Solidity};
 
-use crate::app::AppConfig;
+use nclock_config::AppConfig;
+
 use crate::state::{AppState, INTRO_ANIMATION_WAIT_DURATION};
 
 struct RenderConfig {

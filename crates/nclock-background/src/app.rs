@@ -16,14 +16,8 @@ use winit::event_loop::ActiveEventLoop;
 use winit::raw_window_handle::HasWindowHandle;
 use winit::window::{Fullscreen, Window, WindowId};
 
-use crate::state::AppState;
-
-#[derive(Debug, Clone)]
-pub struct AppConfig {
-    pub inner_radius_frac: f64,
-    pub lane_width_frac: f64,
-    pub lane_margin_frac: f64,
-}
+use nclock_config::AppConfig;
+use nclock_core::AppState;
 
 pub struct AppContext {
     window: Window,
@@ -78,7 +72,7 @@ impl App {
         canvas.set_size(size.width, size.height, scale_factor);
         canvas.clear_rect(0, 0, size.width, size.height, Color::black());
 
-        crate::renderer::render(
+        nclock_core::render(
             canvas,
             (size.width as f32, size.height as f32),
             &self.config,

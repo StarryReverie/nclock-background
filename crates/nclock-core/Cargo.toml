@@ -1,0 +1,11 @@
+[package]
+name = "nclock-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+femtovg = { workspace = true }
+time = { workspace = true }
+iana-time-zone = { workspace = true }
+
+nclock-config = { path = "../nclock-config" }

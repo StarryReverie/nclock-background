@@ -4,6 +4,6 @@ lib.fileset.toSource {
   fileset = lib.fileset.unions [
     ../Cargo.toml
     ../Cargo.lock
-    ../src
+    ../crates
   ];
 }

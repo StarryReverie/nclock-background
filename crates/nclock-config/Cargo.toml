@@ -1,0 +1,4 @@
+[package]
+name = "nclock-config"
+version.workspace = true
+edition.workspace = true

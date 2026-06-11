@@ -712,9 +712,24 @@ dependencies = [
  "femtovg",
  "glutin",
  "glutin-winit",
- "iana-time-zone",
+ "nclock-config",
+ "nclock-core",
  "time",
  "winit",
+]
+
+[[package]]
+name = "nclock-config"
+version = "0.1.0"
+
+[[package]]
+name = "nclock-core"
+version = "0.1.0"
+dependencies = [
+ "femtovg",
+ "iana-time-zone",
+ "nclock-config",
+ "time",
 ]
 
 [[package]]

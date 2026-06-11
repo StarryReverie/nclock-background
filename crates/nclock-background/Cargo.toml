@@ -1,0 +1,14 @@
+[package]
+name = "nclock-background"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+femtovg = { workspace = true }
+glutin = { workspace = true }
+glutin-winit = { workspace = true }
+time = { workspace = true }
+winit = { workspace = true }
+
+nclock-config = { path = "../nclock-config" }
+nclock-core = { path = "../nclock-core" }

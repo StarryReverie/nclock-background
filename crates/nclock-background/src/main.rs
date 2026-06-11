@@ -1,5 +1,7 @@
-use nclock_background::{App, AppConfig};
 use winit::event_loop::EventLoop;
+
+use nclock_background::App;
+use nclock_config::AppConfig;
 
 fn main() {
     let event_loop = EventLoop::new().expect("could not create event loop");
