@@ -75,7 +75,7 @@ impl App {
         nclock_core::render(
             canvas,
             (size.width as f32, size.height as f32),
-            &self.config,
+            &self.config.animation,
             &self.state,
             font_id,
         );

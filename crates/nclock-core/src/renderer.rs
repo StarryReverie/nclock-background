@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use femtovg::{Align, Baseline, Canvas, Color, FontId, LineCap, Paint, Path, Renderer, Solidity};
 
-use nclock_config::AppConfig;
+use nclock_config::AnimationConfig;
 
 use crate::state::{AppState, INTRO_ANIMATION_WAIT_DURATION};
 
@@ -14,11 +14,11 @@ struct RenderConfig {
 }
 
 impl RenderConfig {
-    fn convert(config: &AppConfig, heigth: f64) -> Self {
+    fn convert(config: &AnimationConfig, heigth: f64) -> Self {
         Self {
-            inner_radius: config.inner_radius_frac * heigth,
-            lane_width: config.lane_width_frac * heigth,
-            lane_margin: config.lane_margin_frac * heigth,
+            inner_radius: config.relative_inner_radius * heigth,
+            lane_width: config.relative_lane_width * heigth,
+            lane_margin: config.relative_lane_margin * heigth,
         }
     }
 }
@@ -26,7 +26,7 @@ impl RenderConfig {
 pub fn render(
     canvas: &mut Canvas<impl Renderer>,
     (width, heigth): (f32, f32),
-    config: &AppConfig,
+    config: &AnimationConfig,
     state: &AppState,
     font_id: FontId,
 ) {
