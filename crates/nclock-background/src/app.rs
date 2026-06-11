@@ -46,7 +46,7 @@ impl App {
             .expect("could not insert timer");
 
         let wayland = WaylandContext::create(&event_loop, &config.layer);
-        let opengl = OpenGlContext::create(&wayland.connection());
+        let opengl = OpenGlContext::create(wayland.connection());
 
         let initial_instant = Instant::now();
         let initial_time = OffsetDateTime::now_local().unwrap();
@@ -65,22 +65,12 @@ impl App {
             .expect("event loop error");
     }
 
-    fn bind_output(&mut self, global_name: u32, version: u32) {
-        self.wayland
-            .bind_output(global_name, version, &self.config.layer);
-    }
-
     fn handle_configure(&mut self, output_name: u32, width: u32, height: u32) {
-        let first_configure = self.wayland.handle_configure(output_name, width, height);
-        if first_configure {
-            let output = self.wayland.outputs.get(&output_name).unwrap();
-            let configured = self.opengl.init_for_output(output, width, height);
-            self.wayland
-                .outputs
-                .get_mut(&output_name)
-                .unwrap()
-                .configured = Some(configured);
-        }
+        let gl = &self.opengl;
+        self.wayland
+            .handle_configure(output_name, width, height, |output, w, h| {
+                gl.init_for_output(output, w, h)
+            });
     }
 
     fn handle_closed(&mut self, output_name: u32) {
@@ -88,10 +78,11 @@ impl App {
     }
 
     fn render_all(&mut self) {
-        for output in self.wayland.outputs.values_mut() {
-            self.opengl
-                .render_output(output, &self.config.animation, &self.state);
-        }
+        let animation_config = &self.config.animation;
+        let state = &self.state;
+        self.wayland.for_each_output_mut(|output| {
+            output.render(animation_config, state);
+        });
     }
 }
 
@@ -125,7 +116,9 @@ impl Dispatch<WlRegistry, GlobalListContents> for App {
                 interface,
                 version,
             } if interface == "wl_output" => {
-                state.bind_output(name, version);
+                state
+                    .wayland
+                    .bind_output(name, version, &state.config.layer);
             }
             WlRegistryEvent::GlobalRemove { name } => {
                 state.handle_closed(name);
@@ -145,9 +138,7 @@ impl Dispatch<WlOutput, u32> for App {
         _qh: &QueueHandle<Self>,
     ) {
         if let WlOutputEvent::Scale { factor } = event {
-            if let Some(output) = state.wayland.outputs.get_mut(output_name) {
-                output.scale_factor = factor as f32;
-            }
+            state.wayland.set_scale_factor(output_name, factor as f32);
         }
     }
 }

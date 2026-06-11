@@ -17,7 +17,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1::{
 
 use nclock_config::{Layer as AppLayer, LayerConfig};
 
-use crate::output::Output;
+use crate::output::{ConfiguredSurface, Output};
 
 pub struct WaylandContext<A> {
     connection: Connection,
@@ -25,7 +25,7 @@ pub struct WaylandContext<A> {
     compositor: WlCompositor,
     queue_handle: QueueHandle<A>,
     layer_shell: ZwlrLayerShellV1,
-    pub outputs: HashMap<u32, Output>,
+    outputs: HashMap<u32, Output>,
 }
 
 impl<A> WaylandContext<A>
@@ -70,7 +70,7 @@ where
         globals.contents().with_list(|globals| {
             for global in globals {
                 if global.interface == "wl_output" {
-                    context.bind_output(global.name, global.version, &layer_config);
+                    context.bind_output(global.name, global.version, layer_config);
                 }
             }
         });
@@ -128,22 +128,41 @@ where
         );
     }
 
-    pub fn handle_configure(&mut self, output_name: u32, width: u32, height: u32) -> bool {
+    pub fn handle_configure(
+        &mut self,
+        output_name: u32,
+        width: u32,
+        height: u32,
+        init: impl FnOnce(&Output, u32, u32) -> ConfiguredSurface,
+    ) {
         let Some(output) = self.outputs.get_mut(&output_name) else {
-            return false;
+            return;
         };
 
-        let first_configure = output.configured.is_none();
         if let Some(configured) = &mut output.configured {
             configured.width = width;
             configured.height = height;
             configured.pending_resize = true;
+            return;
         }
 
-        first_configure
+        let configured = init(output, width, height);
+        output.configured = Some(configured);
     }
 
     pub fn handle_closed(&mut self, output_name: u32) {
         self.outputs.remove(&output_name);
+    }
+
+    pub fn set_scale_factor(&mut self, output_name: &u32, factor: f32) {
+        if let Some(output) = self.outputs.get_mut(output_name) {
+            output.scale_factor = factor;
+        }
+    }
+
+    pub fn for_each_output_mut(&mut self, mut f: impl FnMut(&mut Output)) {
+        for output in self.outputs.values_mut() {
+            f(output);
+        }
     }
 }

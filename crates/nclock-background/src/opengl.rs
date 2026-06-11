@@ -2,19 +2,16 @@ use std::ffi::c_void;
 use std::num::NonZeroU32;
 use std::ptr::NonNull;
 
+use femtovg::Canvas;
 use femtovg::renderer::OpenGl;
-use femtovg::{Canvas, Color};
 use glutin::config::{Config as GlConfig, ConfigTemplateBuilder};
 use glutin::context::{ContextAttributesBuilder, NotCurrentGlContext as _};
 use glutin::display::{Display as GlDisplay, DisplayApiPreference, GlDisplay as _};
-use glutin::surface::{GlSurface as _, SurfaceAttributesBuilder, WindowSurface};
+use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
 use raw_window_handle::{
     RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle,
 };
 use wayland_client::{Connection, Proxy};
-
-use nclock_config::AnimationConfig;
-use nclock_core::AppState;
 
 use crate::output::{ConfiguredSurface, Output};
 
@@ -98,44 +95,5 @@ impl OpenGlContext {
             height,
             pending_resize: false,
         }
-    }
-
-    pub fn render_output(
-        &self,
-        output: &mut Output,
-        animation_config: &AnimationConfig,
-        app_state: &AppState,
-    ) {
-        let Some(surface) = &mut output.configured else {
-            return;
-        };
-
-        if surface.pending_resize {
-            let (pw, ph) = surface.physical_size_nonzero(output.scale_factor);
-            let scale_factor = output.scale_factor as u32;
-            if scale_factor > 1 {
-                output.surface.set_buffer_scale(scale_factor as i32);
-            }
-            surface.surface.resize(&surface.context, pw, ph);
-            surface.pending_resize = false;
-        }
-
-        let (pw, ph) = surface.physical_size(output.scale_factor);
-        surface.canvas.set_size(pw, ph, output.scale_factor);
-        surface.canvas.clear_rect(0, 0, pw, ph, Color::black());
-
-        nclock_core::render(
-            &mut surface.canvas,
-            (pw as f32, ph as f32),
-            animation_config,
-            app_state,
-            surface.font_id,
-        );
-
-        surface.canvas.flush();
-        surface
-            .surface
-            .swap_buffers(&surface.context)
-            .expect("could not swap buffers");
     }
 }
