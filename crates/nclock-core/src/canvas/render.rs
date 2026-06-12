@@ -1,121 +1,22 @@
 use std::f64::consts::{FRAC_1_PI, FRAC_PI_2, PI};
-use std::num::NonZeroU32;
 use std::time::Duration;
 
-use femtovg::renderer::SurfacelessRenderer;
 use femtovg::{Align, Baseline, Canvas, Color, FontId, LineCap, Paint, Path, Renderer, Solidity};
 
 use nclock_config::AnimationConfig;
 
+use crate::canvas::Size;
+use crate::canvas::glyph_cache::GlyphCache;
 use crate::state::{AppState, INTRO_ANIMATION_WAIT_DURATION};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Size<T> {
-    pub width: T,
-    pub height: T,
-}
-
-impl<T> Size<T> {
-    pub fn new(width: T, height: T) -> Self {
-        Self { width, height }
-    }
-
-    pub fn convert_with<F, U>(self, conv: F) -> Size<U>
-    where
-        F: Fn(T) -> U,
-    {
-        Size::new(conv(self.width), conv(self.height))
-    }
-}
-
-pub struct AppCanvas<R: Renderer> {
-    canvas: Canvas<R>,
-    font_id: FontId,
-    logical_size: Size<u32>,
-    physical_size: Size<u32>,
-}
-
-impl<R: Renderer> AppCanvas<R> {
-    pub fn new(
-        mut canvas: Canvas<R>,
-        font_id: FontId,
-        logical_size: Size<u32>,
-        scale_factor: f32,
-    ) -> Self {
-        let physical_width = logical_size.width * scale_factor as u32;
-        let physical_height = logical_size.height * scale_factor as u32;
-        canvas.set_size(physical_width, physical_height, scale_factor);
-        Self {
-            canvas,
-            font_id,
-            logical_size,
-            physical_size: Size::new(physical_width, physical_height),
-        }
-    }
-
-    pub fn update_size(&mut self, size: Size<u32>) {
-        self.logical_size = size;
-    }
-
-    pub fn physical_size(&self, scale_factor: f32) -> Size<u32> {
-        let s = scale_factor as u32;
-        Size::new(self.logical_size.width * s, self.logical_size.height * s)
-    }
-
-    pub fn physical_size_nonzero(&self, scale_factor: f32) -> Size<NonZeroU32> {
-        let size = self.physical_size(scale_factor);
-        Size::new(
-            NonZeroU32::new(size.width.max(1)).unwrap(),
-            NonZeroU32::new(size.height.max(1)).unwrap(),
-        )
-    }
-
-    pub fn reapply_size(&mut self, scale_factor: f32) {
-        self.physical_size.width = self.logical_size.width * scale_factor as u32;
-        self.physical_size.height = self.logical_size.height * scale_factor as u32;
-        self.canvas.set_size(
-            self.physical_size.width,
-            self.physical_size.height,
-            scale_factor,
-        );
-    }
-}
-
-impl<R: SurfacelessRenderer> AppCanvas<R> {
-    pub fn render(&mut self, config: &AnimationConfig, state: &AppState) {
-        let config = RenderConfig::convert(config, self.physical_size.height as f64);
-        self.canvas.clear_rect(
-            0,
-            0,
-            self.physical_size.width,
-            self.physical_size.height,
-            Color::black(),
-        );
-        render_clock(
-            &mut self.canvas,
-            self.physical_size.convert_with(|x| x as f32),
-            state,
-            self.font_id,
-            config,
-        );
-        render_footer(
-            &mut self.canvas,
-            self.physical_size.convert_with(|x| x as f32),
-            state,
-            self.font_id,
-        );
-        self.canvas.flush();
-    }
-}
-
-struct RenderConfig {
+pub struct RenderConfig {
     inner_radius: f64,
     lane_width: f64,
     lane_margin: f64,
 }
 
 impl RenderConfig {
-    fn convert(config: &AnimationConfig, heigth: f64) -> Self {
+    pub fn convert(config: &AnimationConfig, heigth: f64) -> Self {
         Self {
             inner_radius: config.relative_inner_radius * heigth,
             lane_width: config.relative_lane_width * heigth,
@@ -124,12 +25,12 @@ impl RenderConfig {
     }
 }
 
-fn render_clock(
+pub fn render_clock(
     canvas: &mut Canvas<impl Renderer>,
     size: Size<f32>,
     state: &AppState,
-    font_id: FontId,
     config: RenderConfig,
+    glyph_cache: &mut GlyphCache,
 ) {
     if state.initial_instant().elapsed() < Duration::from_secs_f64(INTRO_ANIMATION_WAIT_DURATION) {
         return;
@@ -168,8 +69,7 @@ fn render_clock(
             radius,
             pointer_angle,
             label,
-            font_id,
-            config.lane_width,
+            glyph_cache,
         );
     }
 }
@@ -189,16 +89,8 @@ fn render_text_on_lane(
     radius: f64,
     pointer_angle: f64,
     text: &str,
-    font_id: FontId,
-    lane_width: f64,
+    glyph_cache: &GlyphCache,
 ) {
-    let font_size = (lane_width * 0.4) as f32;
-    let paint = Paint::color(Color::black())
-        .with_font(&[font_id])
-        .with_font_size(font_size)
-        .with_text_align(Align::Center)
-        .with_text_baseline(Baseline::Middle);
-
     let chars: Vec<char> = text.chars().collect();
     let mut offset = 0.0f64;
     let iter: Box<dyn DoubleEndedIterator<Item = &char>> = if pointer_angle.sin() <= 0.0 {
@@ -208,11 +100,11 @@ fn render_text_on_lane(
     };
 
     for ch in iter {
-        let metrics = canvas
-            .measure_text(0.0, 0.0, ch.to_string(), &paint)
-            .unwrap();
-        let char_width = metrics.width() as f64;
-        let delta = char_width / radius;
+        let slot = match glyph_cache.get(*ch) {
+            Some(s) => s,
+            None => continue,
+        };
+        let delta = slot.width / radius;
         offset += delta;
         let theta = pointer_angle - offset + delta / 2.0;
 
@@ -225,15 +117,28 @@ fn render_text_on_lane(
             theta + FRAC_PI_2
         };
 
+        let half_w = slot.slot_w / 2.0;
+        let half_h = slot.slot_h / 2.0;
+        let paint = Paint::image_tint(
+            slot.image_id,
+            -half_w,
+            -half_h,
+            slot.slot_w,
+            slot.slot_h,
+            0.0,
+            Color::black(),
+        );
         canvas.save_with(|canvas| {
             canvas.translate(x, y);
             canvas.rotate(rotation as f32);
-            canvas.fill_text(0.0, 0.0, ch.to_string(), &paint).ok();
+            let mut path = Path::new();
+            path.rect(-half_w, -half_h, slot.slot_w, slot.slot_h);
+            canvas.fill_path(&path, &paint);
         });
     }
 }
 
-fn render_footer(
+pub fn render_footer(
     canvas: &mut Canvas<impl Renderer>,
     size: Size<f32>,
     state: &AppState,

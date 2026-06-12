@@ -1,5 +1,5 @@
-mod renderer;
+mod canvas;
 mod state;
 
-pub use renderer::{AppCanvas, Size};
+pub use canvas::{AppCanvas, Size};
 pub use state::{AppState, ClockAngles, ClockLabels};
