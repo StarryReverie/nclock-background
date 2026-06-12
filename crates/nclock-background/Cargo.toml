@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+clap = { workspace = true }
 femtovg = { workspace = true }
 glutin = { workspace = true }
 time = { workspace = true }
