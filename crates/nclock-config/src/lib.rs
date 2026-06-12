@@ -15,6 +15,7 @@ pub struct AnimationConfig {
 pub struct LayerConfig {
     pub layer: Layer,
     pub namespace: String,
+    pub exit_on_input: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

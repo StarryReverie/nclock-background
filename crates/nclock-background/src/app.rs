@@ -4,10 +4,13 @@ use calloop::EventLoop;
 use time::{OffsetDateTime, PrimitiveDateTime};
 use wayland_client::globals::GlobalListContents;
 use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_keyboard::{Event as WlKeyboardEvent, KeyState, WlKeyboard};
 use wayland_client::protocol::wl_output::{Event as WlOutputEvent, WlOutput};
+use wayland_client::protocol::wl_pointer::{ButtonState, Event as WlPointerEvent, WlPointer};
 use wayland_client::protocol::wl_registry::{Event as WlRegistryEvent, WlRegistry};
+use wayland_client::protocol::wl_seat::{Capability, Event as WlSeatEvent, WlSeat};
 use wayland_client::protocol::wl_surface::{Event as WlSurfaceEvent, WlSurface};
-use wayland_client::{Connection, Dispatch, QueueHandle, delegate_noop};
+use wayland_client::{Connection, Dispatch, QueueHandle, WEnum, delegate_noop};
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_shell_v1::ZwlrLayerShellV1;
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1::{
     Event as ZwlrLayerSurfaceV1Event, ZwlrLayerSurfaceV1,
@@ -25,6 +28,8 @@ pub struct App {
 
     wayland: WaylandContext<Self>,
     opengl: OpenGlContext,
+
+    should_exit: bool,
 }
 
 impl App {
@@ -44,11 +49,16 @@ impl App {
             state: AppState::new(initial_time, initial_instant, utc_offset),
             wayland,
             opengl,
+            should_exit: false,
         };
 
         loop {
             let frame_start = Instant::now();
             let _ = event_loop.dispatch(Some(Duration::ZERO), &mut app);
+
+            if app.should_exit {
+                break;
+            }
 
             app.state.refresh_current_instant();
             let interval = if app.state.is_high_motion() {
@@ -93,6 +103,59 @@ impl App {
 delegate_noop!(App: WlCompositor);
 delegate_noop!(App: ZwlrLayerShellV1);
 
+impl Dispatch<WlSeat, ()> for App {
+    fn event(
+        state: &mut Self,
+        proxy: &WlSeat,
+        event: WlSeatEvent,
+        _data: &(),
+        _conn: &Connection,
+        qh: &QueueHandle<Self>,
+    ) {
+        if let WlSeatEvent::Capabilities { capabilities } = event
+            && let WEnum::Value(caps) = capabilities {
+                if caps.contains(Capability::Keyboard) {
+                    state.wayland.set_keyboard(proxy.get_keyboard(qh, ()));
+                }
+                if caps.contains(Capability::Pointer) {
+                    state.wayland.set_pointer(proxy.get_pointer(qh, ()));
+                }
+            }
+    }
+}
+
+impl Dispatch<WlKeyboard, ()> for App {
+    fn event(
+        state: &mut Self,
+        _proxy: &WlKeyboard,
+        event: WlKeyboardEvent,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        if let WlKeyboardEvent::Key { state: key_state, .. } = event
+            && key_state == WEnum::Value(KeyState::Pressed) && state.config.layer.exit_on_input {
+                state.should_exit = true;
+            }
+    }
+}
+
+impl Dispatch<WlPointer, ()> for App {
+    fn event(
+        state: &mut Self,
+        _proxy: &WlPointer,
+        event: WlPointerEvent,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        if let WlPointerEvent::Button { state: btn_state, .. } = event
+            && btn_state == WEnum::Value(ButtonState::Pressed) && state.config.layer.exit_on_input {
+                state.should_exit = true;
+            }
+    }
+}
+
 impl Dispatch<WlSurface, ()> for App {
     fn event(
         _state: &mut Self,
@@ -123,6 +186,13 @@ impl Dispatch<WlRegistry, GlobalListContents> for App {
                 state
                     .wayland
                     .bind_output(name, version, &state.config.layer);
+            }
+            WlRegistryEvent::Global {
+                name,
+                interface,
+                version,
+            } if interface == "wl_seat" && state.config.layer.exit_on_input => {
+                state.wayland.bind_seat(name, version);
             }
             WlRegistryEvent::GlobalRemove { name } => {
                 state.handle_closed(name);

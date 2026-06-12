@@ -11,6 +11,7 @@ fn main() {
         layer: LayerConfig {
             layer: Layer::Background,
             namespace: "nclock-background".to_string(),
+            exit_on_input: false,
         },
     };
 

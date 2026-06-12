@@ -4,8 +4,11 @@ use calloop::EventLoop;
 use calloop_wayland_source::WaylandSource;
 use wayland_client::globals::GlobalListContents;
 use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_keyboard::WlKeyboard;
 use wayland_client::protocol::wl_output::WlOutput;
+use wayland_client::protocol::wl_pointer::WlPointer;
 use wayland_client::protocol::wl_registry::WlRegistry;
+use wayland_client::protocol::wl_seat::WlSeat;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{Connection, Dispatch, QueueHandle};
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_shell_v1::{
@@ -25,14 +28,20 @@ pub struct WaylandContext<A> {
     compositor: WlCompositor,
     queue_handle: QueueHandle<A>,
     layer_shell: ZwlrLayerShellV1,
+    seat: Option<WlSeat>,
+    keyboard: Option<WlKeyboard>,
+    pointer: Option<WlPointer>,
     outputs: HashMap<u32, Output>,
 }
 
 impl<A> WaylandContext<A>
 where
     A: Dispatch<WlCompositor, ()>,
+    A: Dispatch<WlKeyboard, ()>,
     A: Dispatch<WlOutput, u32>,
+    A: Dispatch<WlPointer, ()>,
     A: Dispatch<WlRegistry, GlobalListContents>,
+    A: Dispatch<WlSeat, ()>,
     A: Dispatch<WlSurface, ()>,
     A: Dispatch<ZwlrLayerShellV1, ()>,
     A: Dispatch<ZwlrLayerSurfaceV1, u32>,
@@ -64,6 +73,9 @@ where
             compositor,
             layer_shell,
             queue_handle,
+            seat: None,
+            keyboard: None,
+            pointer: None,
             outputs: Default::default(),
         };
 
@@ -74,6 +86,16 @@ where
                 }
             }
         });
+
+        if layer_config.exit_on_input {
+            globals.contents().with_list(|globals| {
+                for global in globals {
+                    if global.interface == "wl_seat" {
+                        context.bind_seat(global.name, global.version);
+                    }
+                }
+            });
+        }
 
         context
     }
@@ -111,7 +133,11 @@ where
 
         layer_surface.set_anchor(Anchor::all());
         layer_surface.set_exclusive_zone(-1);
-        layer_surface.set_keyboard_interactivity(KeyboardInteractivity::None);
+        layer_surface.set_keyboard_interactivity(if layer_config.exit_on_input {
+            KeyboardInteractivity::Exclusive
+        } else {
+            KeyboardInteractivity::None
+        });
         layer_surface.set_size(0, 0);
 
         surface.commit();
@@ -161,6 +187,22 @@ where
                 c.pending_resize = true;
             }
         }
+    }
+
+    pub fn bind_seat(&mut self, name: u32, version: u32) {
+        if self.seat.is_some() {
+            return;
+        }
+        let seat = self.registry.bind(name, version, &self.queue_handle, ());
+        self.seat = Some(seat);
+    }
+
+    pub fn set_keyboard(&mut self, kb: WlKeyboard) {
+        self.keyboard = Some(kb);
+    }
+
+    pub fn set_pointer(&mut self, ptr: WlPointer) {
+        self.pointer = Some(ptr);
     }
 
     pub fn for_each_output_mut(&mut self, mut f: impl FnMut(&mut Output)) {
