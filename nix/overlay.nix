@@ -1,3 +1,3 @@
 final: prev: {
-  nclock-background = prev.callPackage ./package.nix { };
+  nclock-background = prev.callPackage ./packages/nclock-background.nix { };
 }

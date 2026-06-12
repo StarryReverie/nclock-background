@@ -1,6 +1,13 @@
 {
   lib,
   rustPlatform,
+
+  autoPatchelfHook,
+  makeWrapper,
+
+  libGL,
+  libgcc,
+  wayland,
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
@@ -10,8 +17,24 @@ rustPlatform.buildRustPackage (finalAttrs: {
   src = import ./source.nix { inherit lib; };
 
   cargoLock = {
-    lockFile = ../Cargo.lock;
+    lockFile = ../../Cargo.lock;
   };
+
+  buildAndTestSubdir = [ "crates/nclock-background" ];
+
+  nativeBuildInputs = [
+    autoPatchelfHook
+    makeWrapper
+  ];
+
+  buildInputs = [
+    libgcc
+  ];
+
+  runtimeDependencies = [
+    libGL
+    wayland
+  ];
 
   meta = {
     description = "Fancy dynamic night clock wallpaper engine for Wayland compositors";

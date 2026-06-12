@@ -15,7 +15,7 @@
     {
       packages = {
         default = config.packages.nclock-background;
-        nclock-background = pkgs.callPackage ../package.nix { };
+        nclock-background = pkgs.callPackage ../packages/nclock-background.nix { };
       };
 
       legacyPackages = config.packages;

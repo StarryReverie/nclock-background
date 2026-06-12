@@ -21,8 +21,7 @@
           pkgsDev.nixfmt-tree
 
           pkgsDev.libGL
-          pkgsDev.libxkbcommon
-          pkgsDev.mesa
+          pkgsDev.libgcc
           pkgsDev.pkg-config
           pkgsDev.wayland
         ];
@@ -31,12 +30,9 @@
           export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${
             pkgsDev.lib.makeLibraryPath [
               pkgsDev.libGL
-              pkgsDev.libxkbcommon
-              pkgsDev.mesa
               pkgsDev.wayland
             ]
           }"
-          # export __EGL_VENDOR_LIBRARY_DIRS="${pkgsDev.mesa}/share/glvnd/egl_vendor.d"
         '';
       };
     };
