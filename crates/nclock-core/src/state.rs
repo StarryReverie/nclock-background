@@ -42,6 +42,10 @@ impl AppState {
         self.clock.labels_at(self.current_instant)
     }
 
+    pub fn is_high_motion(&self) -> bool {
+        self.clock.is_high_motion(self.current_instant)
+    }
+
     pub fn footer_text(&self) -> String {
         let current_time = self.clock.current_time(self.current_instant);
 
@@ -177,6 +181,17 @@ impl ClockAnimation {
         };
 
         fraction * 2.0 * std::f64::consts::PI
+    }
+
+    pub fn is_high_motion(&self, at: Instant) -> bool {
+        let elapsed = at.duration_since(self.initial_instant).as_secs_f64();
+        if elapsed < INTRO_ANIMATION_WAIT_DURATION + INTRO_ANIMATION_EXPANSION_DURATION {
+            return true;
+        }
+
+        let t = self.current_time(at);
+        let sub_second = t.second() as f64 + t.nanosecond() as f64 / 1_000_000_000.0;
+        sub_second < POINTER_RESET_ANIMATION_DURATION
     }
 
     fn calc_intro_factor(&self, current_instant: Instant) -> f64 {

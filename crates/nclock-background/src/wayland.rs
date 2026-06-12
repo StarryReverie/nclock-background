@@ -128,24 +128,26 @@ where
         );
     }
 
+    /// Returns `true` if this was the first-time configure (new ConfiguredSurface was created).
     pub fn handle_configure(
         &mut self,
         output_name: u32,
         width: u32,
         height: u32,
         init: impl FnOnce(&Output, u32, u32) -> ConfiguredSurface,
-    ) {
+    ) -> bool {
         let Some(output) = self.outputs.get_mut(&output_name) else {
-            return;
+            return false;
         };
 
         if let Some(configured) = &mut output.configured {
             configured.update_size(width, height);
-            return;
+            return false;
         }
 
         let configured = init(output, width, height);
         output.configured = Some(configured);
+        true
     }
 
     pub fn handle_closed(&mut self, output_name: u32) {

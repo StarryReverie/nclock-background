@@ -1,7 +1,6 @@
 use std::time::{Duration, Instant};
 
 use calloop::EventLoop;
-use calloop::timer::{TimeoutAction, Timer};
 use time::{OffsetDateTime, PrimitiveDateTime};
 use wayland_client::globals::GlobalListContents;
 use wayland_client::protocol::wl_compositor::WlCompositor;
@@ -20,8 +19,6 @@ use nclock_core::AppState;
 use crate::opengl::OpenGlContext;
 use crate::wayland::WaylandContext;
 
-const RENDER_INTERVAL: Duration = Duration::from_millis(16);
-
 pub struct App {
     config: AppConfig,
     state: AppState,
@@ -33,17 +30,6 @@ pub struct App {
 impl App {
     pub fn run(config: AppConfig) {
         let mut event_loop = EventLoop::try_new().expect("could not create event loop");
-        event_loop
-            .handle()
-            .insert_source(
-                Timer::from_duration(RENDER_INTERVAL),
-                |_, _, app: &mut App| {
-                    app.state.refresh_current_instant();
-                    app.render_all();
-                    TimeoutAction::ToDuration(RENDER_INTERVAL)
-                },
-            )
-            .expect("could not insert timer");
 
         let wayland = WaylandContext::create(&event_loop, &config.layer);
         let opengl = OpenGlContext::create(wayland.connection());
@@ -60,17 +46,35 @@ impl App {
             opengl,
         };
 
-        event_loop
-            .run(None, &mut app, |_| {})
-            .expect("event loop error");
+        loop {
+            let frame_start = Instant::now();
+            let _ = event_loop.dispatch(Some(Duration::ZERO), &mut app);
+
+            app.state.refresh_current_instant();
+            let interval = if app.state.is_high_motion() {
+                Duration::from_millis(1000 / 60)
+            } else {
+                Duration::from_millis(1000 / 24)
+            };
+            app.render_all();
+
+            let remaining = interval.saturating_sub(frame_start.elapsed());
+            std::thread::sleep(remaining);
+        }
     }
 
     fn handle_configure(&mut self, output_name: u32, width: u32, height: u32) {
         let gl = &self.opengl;
-        self.wayland
+        let is_new = self
+            .wayland
             .handle_configure(output_name, width, height, |output, w, h| {
                 gl.init_for_output(output, w, h)
             });
+
+        if is_new {
+            self.state.refresh_current_instant();
+            self.render_all();
+        }
     }
 
     fn handle_closed(&mut self, output_name: u32) {
