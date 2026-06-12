@@ -12,14 +12,15 @@ keywords = ["wayland", "wallpaper", "clock"]
 categories = ["gui", "multimedia::graphics"]
 
 [workspace.dependencies]
+calloop = "0.13"
+calloop-wayland-source = "0.3"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 femtovg = { version = "0.25.1", default-features = false, features = ["textlayout"] }
 glutin = { version = "0.32.3", default-features = false, features = ["egl", "wayland"] }
-time = { version = "0.3.47", features = ["local-offset", "formatting", "macros"] }
 iana-time-zone = "0.1"
+nix = { version = "0.29", features = ["signal"] }
+raw-window-handle = "0.6"
+time = { version = "0.3.47", features = ["local-offset", "formatting", "macros"] }
 wayland-backend = { version = "0.3", features = ["client_system"] }
 wayland-client = { version = "0.31", features = ["system"] }
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
-calloop = "0.13"
-calloop-wayland-source = "0.3"
-raw-window-handle = "0.6"

@@ -113,14 +113,15 @@ impl Dispatch<WlSeat, ()> for App {
         qh: &QueueHandle<Self>,
     ) {
         if let WlSeatEvent::Capabilities { capabilities } = event
-            && let WEnum::Value(caps) = capabilities {
-                if caps.contains(Capability::Keyboard) {
-                    state.wayland.set_keyboard(proxy.get_keyboard(qh, ()));
-                }
-                if caps.contains(Capability::Pointer) {
-                    state.wayland.set_pointer(proxy.get_pointer(qh, ()));
-                }
+            && let WEnum::Value(caps) = capabilities
+        {
+            if caps.contains(Capability::Keyboard) {
+                state.wayland.set_keyboard(proxy.get_keyboard(qh, ()));
             }
+            if caps.contains(Capability::Pointer) {
+                state.wayland.set_pointer(proxy.get_pointer(qh, ()));
+            }
+        }
     }
 }
 
@@ -133,10 +134,14 @@ impl Dispatch<WlKeyboard, ()> for App {
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
-        if let WlKeyboardEvent::Key { state: key_state, .. } = event
-            && key_state == WEnum::Value(KeyState::Pressed) && state.config.layer.exit_on_input {
-                state.should_exit = true;
-            }
+        if let WlKeyboardEvent::Key {
+            state: key_state, ..
+        } = event
+            && key_state == WEnum::Value(KeyState::Pressed)
+            && state.config.layer.exit_on_input
+        {
+            state.should_exit = true;
+        }
     }
 }
 
@@ -149,10 +154,14 @@ impl Dispatch<WlPointer, ()> for App {
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
-        if let WlPointerEvent::Button { state: btn_state, .. } = event
-            && btn_state == WEnum::Value(ButtonState::Pressed) && state.config.layer.exit_on_input {
-                state.should_exit = true;
-            }
+        if let WlPointerEvent::Button {
+            state: btn_state, ..
+        } = event
+            && btn_state == WEnum::Value(ButtonState::Pressed)
+            && state.config.layer.exit_on_input
+        {
+            state.should_exit = true;
+        }
     }
 }
 
