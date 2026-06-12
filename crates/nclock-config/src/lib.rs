@@ -9,6 +9,8 @@ pub struct AnimationConfig {
     pub relative_inner_radius: f64,
     pub relative_lane_width: f64,
     pub relative_lane_margin: f64,
+    pub hue_start: f32,
+    pub hue_end: f32,
 }
 
 #[derive(Debug, Clone)]

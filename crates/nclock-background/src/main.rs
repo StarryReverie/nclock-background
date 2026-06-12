@@ -7,6 +7,8 @@ fn main() {
             relative_inner_radius: 0.1,
             relative_lane_width: 0.045,
             relative_lane_margin: 0.015,
+            hue_start: 0.0,
+            hue_end: 1.0,
         },
         layer: LayerConfig {
             layer: Layer::Background,

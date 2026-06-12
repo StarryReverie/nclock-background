@@ -13,6 +13,8 @@ pub struct RenderConfig {
     inner_radius: f64,
     lane_width: f64,
     lane_margin: f64,
+    hue_start: f32,
+    hue_end: f32,
 }
 
 impl RenderConfig {
@@ -21,6 +23,8 @@ impl RenderConfig {
             inner_radius: config.relative_inner_radius * heigth,
             lane_width: config.relative_lane_width * heigth,
             lane_margin: config.relative_lane_margin * heigth,
+            hue_start: config.hue_start,
+            hue_end: config.hue_end,
         }
     }
 }
@@ -56,7 +60,7 @@ pub fn render_clock(
             Solidity::Hole,
         );
 
-        let paint = Paint::color(calc_rgb_from_angle(angle))
+        let paint = Paint::color(calc_rgb_from_angle(angle, &config))
             .with_line_width(config.lane_width as f32)
             .with_line_cap(LineCap::Round);
 
@@ -78,9 +82,10 @@ fn calc_lane_radius(config: &RenderConfig, lane_num: u8) -> f64 {
     config.inner_radius + (config.lane_width + config.lane_margin) * (lane_num as f64)
 }
 
-fn calc_rgb_from_angle(angle: f64) -> Color {
-    let hue = angle * 0.5 * FRAC_1_PI;
-    Color::hsl(hue as f32, 0.75, 0.50)
+fn calc_rgb_from_angle(angle: f64, config: &RenderConfig) -> Color {
+    let t = (angle * 0.5 * FRAC_1_PI).clamp(0.0, 1.0) as f32;
+    let hue = config.hue_start + t * (config.hue_end - config.hue_start);
+    Color::hsl(hue, 0.75, 0.50)
 }
 
 fn render_text_on_lane(
