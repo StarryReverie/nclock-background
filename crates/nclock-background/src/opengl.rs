@@ -2,7 +2,6 @@ use std::ffi::c_void;
 use std::num::NonZeroU32;
 use std::ptr::NonNull;
 
-use femtovg::Canvas;
 use femtovg::renderer::OpenGl;
 use glutin::config::{Config as GlConfig, ConfigTemplateBuilder};
 use glutin::context::{ContextAttributesBuilder, NotCurrentGlContext as _};
@@ -12,6 +11,8 @@ use raw_window_handle::{
     RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle,
 };
 use wayland_client::{Connection, Proxy};
+
+use nclock_core::{AppCanvas, Size};
 
 use crate::output::{ConfiguredSurface, Output};
 
@@ -81,18 +82,22 @@ impl OpenGlContext {
                 .expect("could not create renderer")
         };
 
-        let mut canvas = Canvas::new(renderer).expect("could not create canvas");
+        let mut canvas = femtovg::Canvas::new(renderer).expect("could not create canvas");
         let font_id = canvas
             .add_font_mem(include_bytes!("../assets/Lato-Regular.ttf"))
             .expect("could not load font");
 
+        let app_canvas = AppCanvas::new(
+            canvas,
+            font_id,
+            Size::new(width, height),
+            scale_factor as f32,
+        );
+
         ConfiguredSurface {
             context,
             surface,
-            canvas,
-            font_id,
-            width,
-            height,
+            canvas: app_canvas,
             pending_resize: false,
         }
     }

@@ -140,9 +140,7 @@ where
         };
 
         if let Some(configured) = &mut output.configured {
-            configured.width = width;
-            configured.height = height;
-            configured.pending_resize = true;
+            configured.update_size(width, height);
             return;
         }
 
@@ -157,6 +155,9 @@ where
     pub fn set_scale_factor(&mut self, output_name: &u32, factor: f32) {
         if let Some(output) = self.outputs.get_mut(output_name) {
             output.scale_factor = factor;
+            if let Some(c) = &mut output.configured {
+                c.pending_resize = true;
+            }
         }
     }
 
