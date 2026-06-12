@@ -14,7 +14,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
   };
 
   meta = {
-    description = "Night clock background";
+    description = "Fancy dynamic night clock wallpaper engine for Wayland compositors";
     homepage = "https://github.com/starryreverie/nclock-background";
     mainProgram = "nclock-background";
     license = lib.licenses.gpl3Plus;

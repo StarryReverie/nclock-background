@@ -1,5 +1,5 @@
 {
-  description = "Nix Flake of nclock-background";
+  description = "Fancy dynamic night clock wallpaper engine for Wayland compositors";
 
   inputs = {
     flake-parts = {

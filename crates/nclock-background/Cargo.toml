@@ -1,7 +1,13 @@
 [package]
 name = "nclock-background"
+description = "Fancy dynamic night clock wallpaper engine for Wayland compositors"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 clap = { workspace = true }
