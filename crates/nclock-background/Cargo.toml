@@ -10,16 +10,17 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+calloop = { workspace = true }
+calloop-wayland-source = { workspace = true }
 clap = { workspace = true }
 femtovg = { workspace = true }
 glutin = { workspace = true }
+nix = { workspace = true }
+raw-window-handle = { workspace = true }
 time = { workspace = true }
 wayland-backend = { workspace = true }
 wayland-client = { workspace = true }
 wayland-protocols-wlr = { workspace = true }
-calloop = { workspace = true }
-calloop-wayland-source = { workspace = true }
-raw-window-handle = { workspace = true }
 
 nclock-config = { path = "../nclock-config" }
 nclock-core = { path = "../nclock-core" }

@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use calloop::EventLoop;
+use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal};
 use time::{OffsetDateTime, PrimitiveDateTime};
 use wayland_client::globals::GlobalListContents;
 use wayland_client::protocol::wl_compositor::WlCompositor;
@@ -58,6 +59,8 @@ impl App {
             should_finalize: false,
             exit_deadline: None,
         };
+
+        install_finalization_request_handler();
 
         loop {
             let frame_start = Instant::now();
@@ -272,6 +275,26 @@ impl Dispatch<ZwlrLayerSurfaceV1, u32> for App {
                 state.handle_closed(*output_name);
             }
             _ => {}
+        }
+    }
+}
+
+fn install_finalization_request_handler() {
+    extern "C" fn handle_sigusr1(_: i32) {
+        FINALIZATION_REQUESTED.store(true, Ordering::Release);
+    }
+
+    let action = SigAction::new(
+        SigHandler::Handler(handle_sigusr1),
+        SaFlags::empty(),
+        SigSet::empty(),
+    );
+
+    unsafe {
+        if nix::sys::signal::sigaction(Signal::SIGUSR1, &action).is_err() {
+            eprintln!(
+                "nclock-background: failed to install SIGUSR1 handler for finalization request"
+            );
         }
     }
 }

@@ -1,10 +1,13 @@
-use std::process::{Child, Command};
+use std::io::Read;
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::sync::mpsc::RecvTimeoutError;
 use std::time::{Duration, Instant};
 
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
+
+const FINALIZATION_NOTIFICATION_STR: &'static str = "finalizing";
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
@@ -16,7 +19,7 @@ pub struct AppConfig {
 
 #[derive(Debug, Clone)]
 enum AppEvent {
-    SubprocessExited,
+    SubprocessFinalizingOrExited,
     MaximumTimerExpired,
 }
 
@@ -33,17 +36,31 @@ pub fn run(config: &AppConfig) {
     let cancel = Mutex::new(can_exit);
 
     std::thread::scope(|s| {
-        s.spawn(|| match subprocess.lock().unwrap().wait() {
-            Ok(status) => {
-                eprintln!(
-                    "nclock-screensaver: nclock-background subprocess terminated with {status}"
-                );
-                let _ = events_tx.send(AppEvent::SubprocessExited);
+        s.spawn(|| {
+            let subprocess = &mut subprocess.lock().unwrap();
+
+            if let Some(stdout) = &mut subprocess.stdout {
+                let mut buf = [0u8; FINALIZATION_NOTIFICATION_STR.as_bytes().len()];
+                if stdout.read_exact(&mut buf[..]).is_ok()
+                    && buf == FINALIZATION_NOTIFICATION_STR.as_bytes()
+                {
+                    eprintln!("nclock-screensaver: nclock-background subprocess is finalizing");
+                    let _ = events_tx.send(AppEvent::SubprocessFinalizingOrExited);
+                }
             }
-            Err(err) => {
-                eprintln!(
-                    "nclock-screensaver: failed to wait for nclock-background subprocess: {err}"
-                );
+
+            match subprocess.wait() {
+                Ok(status) => {
+                    eprintln!(
+                        "nclock-screensaver: nclock-background subprocess terminated with {status}"
+                    );
+                    let _ = events_tx.send(AppEvent::SubprocessFinalizingOrExited);
+                }
+                Err(err) => {
+                    eprintln!(
+                        "nclock-screensaver: failed to wait for nclock-background subprocess: {err}"
+                    );
+                }
             }
         });
 
@@ -56,7 +73,7 @@ pub fn run(config: &AppConfig) {
         });
 
         let should_run_locker = match events.recv() {
-            Ok(AppEvent::SubprocessExited) => {
+            Ok(AppEvent::SubprocessFinalizingOrExited) => {
                 let _ = cancel_tx.send(());
                 if start.elapsed() > config.grace_period {
                     eprintln!("nclock-screensaver: grace period has already expired, spawn locker");
@@ -67,9 +84,10 @@ pub fn run(config: &AppConfig) {
             }
             Ok(AppEvent::MaximumTimerExpired) | Err(_) => {
                 eprintln!(
-                    "nclock-screensaver: maximum period expired, stop screensaver with SIGTERM and spawn locker"
+                    "nclock-screensaver: maximum period expired, stop screensaver with SIGUSR1 and spawn locker"
                 );
-                let _ = nix::sys::signal::kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
+                // Request nclock-screensaver to do graceful finalization by sending SIGUSR1.
+                let _ = nix::sys::signal::kill(Pid::from_raw(pid as i32), Signal::SIGUSR1);
                 let _ = cancel_tx.send(());
                 true
             }
@@ -77,14 +95,20 @@ pub fn run(config: &AppConfig) {
 
         if should_run_locker {
             run_locker(config.locker.as_ref());
+        } else {
+            // Kill nclock-screensaver right now to prevent exit delay.
+            let _ = nix::sys::signal::kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
         }
     });
 }
 
 fn spawn_wallpaper(cmd: Option<&(String, Vec<String>)>) -> Child {
     let res = Command::new(cmd.map_or("nclock-background", |(bin, _)| bin))
+        .stdout(Stdio::piped())
         .arg("--exit-on-input")
         .args(["--layer", "overlay"])
+        .args(["--exit-delay-ms", "1000"])
+        .arg("--notify-finalization")
         .args(cmd.map_or(&[][..], |(_, args)| &args[..]))
         .spawn();
     match res {

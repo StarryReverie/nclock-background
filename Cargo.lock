@@ -534,6 +534,7 @@ dependencies = [
  "glutin",
  "nclock-config",
  "nclock-core",
+ "nix",
  "raw-window-handle",
  "time",
  "wayland-backend",
