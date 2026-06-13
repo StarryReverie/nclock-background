@@ -12,3 +12,4 @@ categories.workspace = true
 [dependencies]
 clap = { workspace = true }
 nix = { workspace = true }
+shlex = { workspace = true }

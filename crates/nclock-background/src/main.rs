@@ -30,11 +30,7 @@ fn main() {
 }
 
 #[derive(Parser)]
-#[command(
-    author,
-    version,
-    about = "Fancy dynamic night clock wallpaper engine for Wayland compositors"
-)]
+#[command(author, version, about)]
 struct Cli {
     /// Inner radius of the innermost orbit, as a fraction of the display height.
     #[arg(long, default_value = "0.1")]

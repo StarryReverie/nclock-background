@@ -107,7 +107,6 @@ fn spawn_wallpaper(cmd: Option<&(String, Vec<String>)>) -> Child {
         .stdout(Stdio::piped())
         .arg("--exit-on-input")
         .args(["--layer", "overlay"])
-        .args(["--exit-delay-ms", "1000"])
         .arg("--notify-finalization")
         .args(cmd.map_or(&[][..], |(_, args)| &args[..]))
         .spawn();
