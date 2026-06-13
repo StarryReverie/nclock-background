@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use clap::Parser;
 use nclock_background::App;
-use nclock_config::{AnimationConfig, AppConfig, Layer, LayerConfig};
+use nclock_config::{AnimationConfig, AppConfig, IpcConfig, Layer, LayerConfig};
 
 fn main() {
     let cli = Cli::parse();
@@ -17,6 +19,10 @@ fn main() {
             layer: cli.layer,
             namespace: cli.namespace,
             exit_on_input: cli.exit_on_input,
+        },
+        ipc: IpcConfig {
+            exit_delay: Duration::from_millis(cli.exit_delay_ms),
+            notify_finalization: cli.notify_finalization,
         },
     };
 
@@ -67,6 +73,21 @@ struct Cli {
     /// Exit the program when a key is pressed or mouse is clicked.
     #[arg(long, default_value_t = false)]
     exit_on_input: bool,
+
+    /// How long to keep rendering after another process requests finalization
+    /// before exiting.
+    ///
+    /// The delay is measured by millseconds. A value of 0 exits without delay.
+    #[arg(long, default_value_t = 0)]
+    exit_delay_ms: u64,
+
+    /// Print `"finalizing"` to stdout when another process requests finalization.
+    ///
+    /// Typically this is used by `nclock-screensaver` as an internal IPC mechanism.
+    /// `nclock-screensaver` will be notified when this process is about to exit after a short
+    /// delay.
+    #[arg(long, default_value_t = false)]
+    notify_finalization: bool,
 }
 
 fn parse_layer(s: &str) -> Result<Layer, String> {

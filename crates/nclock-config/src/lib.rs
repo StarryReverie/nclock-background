@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub animation: AnimationConfig,
     pub layer: LayerConfig,
+    pub ipc: IpcConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -26,4 +29,10 @@ pub enum Layer {
     Bottom,
     Top,
     Overlay,
+}
+
+#[derive(Debug, Clone)]
+pub struct IpcConfig {
+    pub exit_delay: Duration,
+    pub notify_finalization: bool,
 }

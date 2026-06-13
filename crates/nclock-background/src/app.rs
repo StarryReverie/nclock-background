@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use calloop::EventLoop;
@@ -22,6 +23,10 @@ use nclock_core::AppState;
 use crate::opengl::OpenGlContext;
 use crate::wayland::WaylandContext;
 
+const FINALIZATION_NOTIFICATION_STR: &'static str = "finalizing";
+
+static FINALIZATION_REQUESTED: AtomicBool = AtomicBool::new(false);
+
 pub struct App {
     config: AppConfig,
     state: AppState,
@@ -29,7 +34,8 @@ pub struct App {
     wayland: WaylandContext<Self>,
     opengl: OpenGlContext,
 
-    should_exit: bool,
+    should_finalize: bool,
+    exit_deadline: Option<Instant>,
 }
 
 impl App {
@@ -49,15 +55,33 @@ impl App {
             state: AppState::new(initial_time, initial_instant, utc_offset),
             wayland,
             opengl,
-            should_exit: false,
+            should_finalize: false,
+            exit_deadline: None,
         };
 
         loop {
             let frame_start = Instant::now();
             let _ = event_loop.dispatch(Some(Duration::ZERO), &mut app);
 
-            if app.should_exit {
-                break;
+            if FINALIZATION_REQUESTED.load(Ordering::Acquire) {
+                app.should_finalize = true;
+            }
+
+            if app.should_finalize {
+                if let Some(exit_deadline) = app.exit_deadline
+                    && exit_deadline < frame_start
+                {
+                    break;
+                } else if app.exit_deadline.is_none() {
+                    if app.config.ipc.notify_finalization {
+                        println!("{FINALIZATION_NOTIFICATION_STR}");
+                    }
+                    if app.config.ipc.exit_delay.is_zero() {
+                        break;
+                    } else {
+                        app.exit_deadline = Some(frame_start + app.config.ipc.exit_delay);
+                    }
+                }
             }
 
             app.state.refresh_current_instant();
@@ -140,7 +164,7 @@ impl Dispatch<WlKeyboard, ()> for App {
             && key_state == WEnum::Value(KeyState::Pressed)
             && state.config.layer.exit_on_input
         {
-            state.should_exit = true;
+            state.should_finalize = true;
         }
     }
 }
@@ -160,7 +184,7 @@ impl Dispatch<WlPointer, ()> for App {
             && btn_state == WEnum::Value(ButtonState::Pressed)
             && state.config.layer.exit_on_input
         {
-            state.should_exit = true;
+            state.should_finalize = true;
         }
     }
 }
