@@ -24,7 +24,7 @@ use nclock_core::AppState;
 use crate::opengl::OpenGlContext;
 use crate::wayland::WaylandContext;
 
-const FINALIZATION_NOTIFICATION_STR: &'static str = "finalizing";
+const FINALIZATION_NOTIFICATION_STR: &str = "finalizing";
 
 static FINALIZATION_REQUESTED: AtomicBool = AtomicBool::new(false);
 

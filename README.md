@@ -103,7 +103,7 @@ Options:
 
 ### Cargo
 
-Requires Rust 1.85 or later (2024 edition). The toolchain is pinned via `rust-toolchain.toml`.
+Requires Rust 1.85 or later (2024 edition).
 
 ```sh
 cargo build --release

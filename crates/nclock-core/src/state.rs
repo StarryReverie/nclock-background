@@ -57,14 +57,19 @@ impl AppState {
 
         let date_str = current_time
             .format(
-                &time::format_description::parse("[year]-[month repr:numerical]-[day]").unwrap(),
+                &time::format_description::parse_borrowed::<3>(
+                    "[year]-[month repr:numerical]-[day]",
+                )
+                .unwrap(),
             )
             .unwrap();
         let weekday = current_time.weekday().to_string();
         let time_str = current_time
             .format(
-                &time::format_description::parse("[hour repr:12]:[minute]:[second] [period]")
-                    .unwrap(),
+                &time::format_description::parse_borrowed::<3>(
+                    "[hour repr:12]:[minute]:[second] [period]",
+                )
+                .unwrap(),
             )
             .unwrap();
 

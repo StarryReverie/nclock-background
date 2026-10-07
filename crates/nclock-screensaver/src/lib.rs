@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
 
-const FINALIZATION_NOTIFICATION_STR: &'static str = "finalizing";
+const FINALIZATION_NOTIFICATION_STR: &str = "finalizing";
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
@@ -40,7 +40,7 @@ pub fn run(config: &AppConfig) {
             let subprocess = &mut subprocess.lock().unwrap();
 
             if let Some(stdout) = &mut subprocess.stdout {
-                let mut buf = [0u8; FINALIZATION_NOTIFICATION_STR.as_bytes().len()];
+                let mut buf = [0u8; FINALIZATION_NOTIFICATION_STR.len()];
                 if stdout.read_exact(&mut buf[..]).is_ok()
                     && buf == FINALIZATION_NOTIFICATION_STR.as_bytes()
                 {
